@@ -16,7 +16,7 @@ class ModuleQuery {
     this.modulePath = modulePath;
   }
 
-  search(q = '') {
+  search(q = '', {keywords = []} = {}) {
     const {dirname, modulePath} = this;
 
     const _requestAllLocalModules = () => new Promise((accept, reject) => {
@@ -67,7 +67,7 @@ class ModuleQuery {
 
       https.get({
         hostname: 'api.npms.io',
-        path: '/v2/search?q=' + encodeURIComponent(q) + '+keywords:zeo-module',
+        path: '/v2/search?q=' + encodeURIComponent(q) + ((keywords && keywords.length > 0) ? ('+keywords:' + keywords.join(',')) : ''),
       }, proxyRes => {
         if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
           _getResponseJson(proxyRes, (err, j) => {
@@ -204,7 +204,7 @@ class ModuleQuery {
             _getResponseJson(proxyRes, (err, j) => {
               if (!err) {
                 if (typeof j === 'object' && j !== null && typeof j.versions === 'object' && j.versions !== null) {
-                  const versions = Object.keys(versions);
+                  const versions = Object.keys(j.versions);
 
                   accept(versions);
                 } else {
@@ -319,7 +319,7 @@ const _jsonParse = s => {
     return null;
   }
 };
-const _makeRejectApiError = reject => (statusCode = 500, message = 'API Error') => {
+const _makeRejectApiError = reject => (statusCode = 500, message = 'API Error: ' + statusCode) => {
   const err = new Error(message);
   err.statusCode = statusCode;
   reject(err); 
