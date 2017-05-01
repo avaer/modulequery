@@ -16,7 +16,7 @@ class ModuleQuery {
     this.modulePath = modulePath;
   }
 
-  search(q = '', {keywords = []} = {}) {
+  search(q = '', {keywords = [], includeScoped = false} = {}) {
     const {dirname, modulePath} = this;
 
     const _requestAllLocalModules = () => new Promise((accept, reject) => {
@@ -94,6 +94,13 @@ class ModuleQuery {
       }).on('error', err => {
         _rejectApiError(500, err.stack);
       });
+    })
+    .then(modules => {
+      if (includeScoped) {
+        return modules;
+      } else {
+        return modules.filter(module => !/^@/.test(module));
+      }
     })
     .then(_getModules);
 
@@ -205,7 +212,6 @@ class ModuleQuery {
               if (!err) {
                 if (typeof j === 'object' && j !== null && typeof j.versions === 'object' && j.versions !== null) {
                   const versions = Object.keys(j.versions);
-
                   accept(versions);
                 } else {
                   _rejectApiError();
