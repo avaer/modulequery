@@ -1,0 +1,22 @@
+{
+  "name": "modulequery",
+  "version": "0.0.1",
+  "description": "Look up npm modules with the power of the internet",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/modulesio/modulequery.git"
+  },
+  "author": "Avaer Kazmer <a@modules.io>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/modulesio/modulequery/issues"
+  },
+  "homepage": "https://github.com/modulesio/modulequery#readme",
+  "dependencies": {
+    "marked": "^0.3.6"
+  }
+}
