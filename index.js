@@ -67,7 +67,7 @@ class ModuleQuery {
 
       https.get({
         hostname: 'api.npms.io',
-        path: '/v2/search?q=' + encodeURIComponent(q) + 'keywords:' + keywords.join(','),
+        path: '/v2/search?q=' + encodeURIComponent(q) + '+keywords:' + keywords.join(','),
       }, proxyRes => {
         if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
           _getResponseJson(proxyRes, (err, j) => {
