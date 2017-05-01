@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const https = require('follow-redirects').https;
 
 const marked = require('marked');
 
@@ -16,7 +17,7 @@ class ModuleQuery {
     // const localModulePath = path.join(dirname, 'plugins');
   }
 
-  search({q = ''} = {}) {
+  search(q = '') {
     const {dirname, modulePath} = this;
 
     const _requestAllLocalModules = () => new Promise((accept, reject) => {
@@ -33,7 +34,7 @@ class ModuleQuery {
 
             for (let i = 0; i < files.length; i++) {
               const file = files[i];
-              const filePath = path.join('/', 'plugins', file);
+              const filePath = path.join(modulePath, file);
 
               fs.lstat(path.join(dirname, filePath), (err, stats) => {
                 if (!err) {
@@ -57,20 +58,45 @@ class ModuleQuery {
     });
     const _getModules = mods => Promise.all(mods.map(mod => this.getModule(mod)));
     const _requestLocalModules = q => _requestAllLocalModules()
-      .then(modules => {
-        const filteredModules = plugins.filter(plugin => {
-          const name = path.basename(plugin);
-          return name.indexOf(q) !== -1;
-        });
+      .then(modules => modules.filter(module => {
+        const name = path.basename(module);
+        return name.indexOf(q) !== -1;
+      }))
+      .then(_getModules);
+    const _requestNpmModules = q => new Promise((accept, reject) => {
+      const _rejectApiError = _makeRejectApiError(reject);
 
-        return _getModules(filteredModules);
-      });
-    const _requestNpmModules = q => npm.requestSearch(q)
-      .then(results => {
-        const mods = results.map(({package: {name}}) => name);
+      https.get({
+        hostname: 'api.npms.io',
+        path: '/v2/search?q=' + encodeURIComponent(q) + '+keywords:zeo-module',
+      }, proxyRes => {
+        if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
+          _getResponseJson(proxyRes, (err, j) => {
+            if (!err) {
+              if (typeof j === 'object' && j !== null) {
+                const {results} = j;
 
-        return _getModules(mods);
+                if (Array.isArray(results)) {
+                  const mods = results.map(({package: {name}}) => name);
+                  accept(mods);
+                } else {
+                  _rejectApiError();
+                }
+              } else {
+                _rejectApiError();
+              }
+            } else {
+              _rejectApiError(500, err.stack);
+            }
+          });
+        } else {
+          _rejectApiError(proxyRes.statusCode);
+        }
+      }).on('error', err => {
+        _rejectApiError(500, err.stack);
       });
+    })
+    .then(_getModules);
 
     return Promise.all([
       _requestLocalModules(q),
@@ -85,88 +111,172 @@ class ModuleQuery {
       });
   }
 
-  const getModule(mod) {
-    // const {dirname, modulePath} = this;
+  getModule(mod) {
+    const {dirname, modulePath} = this;
 
-    const _getModulePackageJson = plugin => new Promise((accept, reject) => {
-    if (path.isAbsolute(plugin)) {
-      if (plugin.indexOf(modulePath) === 0) {
-        fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
-          if (!err) {
-            const j = _jsonParse(s);
+    const _getModulePackageJson = plugin => {
+      const _getLocalModulePackageJson = plugin => new Promise((accept, reject) => {
+        if (plugin.indexOf(modulePath) === 0) {
+          fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
+            if (!err) {
+              const j = _jsonParse(s);
 
-            if (j !== null) {
-              accept(j);
+              if (j !== null) {
+                accept(j);
+              } else {
+                const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
+                reject(err);
+              }
             } else {
-              const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
               reject(err);
             }
+          });
+        } else {
+          const err = new Error('Invalid local module path: ' + JSON.stringify(plugin));
+          reject(err);
+        }
+      });
+      const _getNpmModulePackageJson = module => new Promise((accept, reject) => {
+        const _rejectApiError = _makeRejectApiError(reject);
+
+        https.get({
+          hostname: 'unpkg.com',
+          path: '/' + module + '/package.json',
+        }, proxyRes => {
+          if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
+            _getResponseJson(proxyRes, (err, j) => {
+              if (!err) {
+                if (typeof j === 'object' && j !== null) {
+                  accept(j);
+                } else {
+                  _rejectApiError();
+                }
+              } else {
+                _rejectApiError(proxyRes.statusCode);
+              }
+            });
           } else {
-            reject(err);
+            _rejectApiError(proxyRes.statusCode);
           }
+        }).on('error', err => {
+          _rejectApiError(500, err.stack);
         });
+      });
+
+      if (path.isAbsolute(plugin)) {
+        return _getLocalModulePackageJson(plugin);
       } else {
-        const err = new Error('Invalid local module path: ' + JSON.stringify(plugin));
-        reject(err);
+        return _getNpmModulePackageJson(plugin);
       }
-    } else {
-      npm.requestPackageJson(plugin)
-        .then(accept)
-        .catch(reject);
-    }
-  });
-  const _getModuleVersions = plugin => new Promise((accept, reject) => {
-    if (path.isAbsolute(plugin)) {
-      if (plugin.indexOf(modulePath) === 0) {
-        fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
-          if (!err) {
-            const j = _jsonParse(s);
+    };
+    const _getModuleVersions = plugin => {
+      const _getLocalModuleVersions = plugin => new Promise((accept, reject) => {
+        if (plugin.indexOf(modulePath) === 0) {
+          fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
+            if (!err) {
+              const j = _jsonParse(s);
 
-            if (j !== null) {
-              const {version = '0.0.1'} = j;
-              const versions = [version];
+              if (j !== null) {
+                const {version = '0.0.1'} = j;
+                const versions = [version];
 
-              accept(versions);
+                accept(versions);
+              } else {
+                const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
+                reject(err);
+              }
             } else {
-              const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
               reject(err);
             }
+          });
+        } else {
+          const err = new Error('Invalid local module path: ' + JSON.stringify(plugin));
+          reject(err);
+        }
+      });
+      const _getNpmModuleVersions = module => new Promise((accept, reject) => {
+        const _rejectApiError = _makeRejectApiError(reject);
+
+        https.get({
+          hostname: 'registry.npmjs.org',
+          path: '/' + module,
+        }, proxyRes => {
+          if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
+            _getResponseJson(proxyRes, (err, j) => {
+              if (!err) {
+                if (typeof j === 'object' && j !== null && typeof j.versions === 'object' && j.versions !== null) {
+                  const versions = Object.keys(versions);
+
+                  accept(versions);
+                } else {
+                  _rejectApiError();
+                }
+              } else {
+                _rejectApiError(proxyRes.statusCode);
+              }
+            });
           } else {
-            reject(err);
+            _rejectApiError(proxyRes.statusCode);
           }
+        }).on('error', err => {
+          _rejectApiError(500, err.stack);
         });
+      });
+
+      if (path.isAbsolute(plugin)) {
+        return _getLocalModuleVersions(plugin);
       } else {
-        const err = new Error('Invalid local module path: ' + JSON.stringify(plugin));
-        reject(err);
+        return _getNpmModuleVersions(plugin);
       }
-    } else {
-      npm.requestPackageVersions(plugin)
-        .then(accept)
-        .catch(reject);
-    }
-  });
-  const _getModuleReadme = plugin => new Promise((accept, reject) => {
-    if (path.isAbsolute(plugin)) {
-      if (plugin.indexOf(modulePath) === 0) {
-        fs.readFile(path.join(dirname, plugin, 'README.md'), 'utf8', (err, s) => {
-          if (!err) {
-            accept(s);
-          } else if (err.code === 'ENOENT') {
+    };
+    const _getModuleReadme = plugin => {
+      const _getLocalModuleReadme = module => new Promise((accept, reject) => {
+        if (plugin.indexOf(modulePath) === 0) {
+          fs.readFile(path.join(dirname, plugin, 'README.md'), 'utf8', (err, s) => {
+            if (!err) {
+              accept(s);
+            } else if (err.code === 'ENOENT') {
+              accept(null);
+            } else {
+              reject(err);
+            }
+          });
+        } else {
+          const err = new Error('Invalid local module path: ' + JSON.stringify(plugin));
+          reject(err);
+        }
+      });
+      const _getNpmModuleReadme = module => new Promise((accept, reject) => {
+        const _rejectApiError = _makeRejectApiError(reject);
+
+        https.get({
+          hostname: 'unpkg.com',
+          path: '/' + module + '/README.md',
+        }, proxyRes => {
+          if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
+            _getResponseString(proxyRes, (err, s) => {
+              if (!err) {
+                accept(s);
+              } else {
+                _rejectApiError(proxyRes.statusCode);
+              }
+            });
+          } else if (proxyRes.statusCode === 404) {
             accept(null);
           } else {
-            reject(err);
+            _rejectApiError(proxyRes.statusCode);
           }
+        }).on('error', err => {
+          _rejectApiError(500, err.stack);
         });
+      });
+
+      if (path.isAbsolute(plugin)) {
+        return _getLocalModuleReadme(plugin);
       } else {
-        const err = new Error('Invalid local module path: ' + JSON.stringify(plugin));
-        reject(err);
+        return _getNpmModuleReadme(plugin);
       }
-    } else {
-      npm.requestReadme(plugin)
-        .then(accept)
-        .catch(reject);
-    }
-  });
+    };
 
     return Promise.all([
       _getModulePackageJson(mod),
@@ -235,7 +345,6 @@ class ModuleQuery {
       local: path.isAbsolute(mod),
       matrix: DEFAULT_TAG_MATRIX,
     })); */
-  }
 }
 
 const _jsonParse = s => {
@@ -252,10 +361,42 @@ const _jsonParse = s => {
     return null;
   }
 };
+const _makeRejectApiError = reject => (statusCode = 500, message = 'API Error') => {
+  const err = new Error(message);
+  err.statusCode = statusCode;
+  reject(err); 
+};
+const _getResponseString = (res, cb) => {
+  const bs = [];
+  res.on('data', d => {
+    bs.push(d);
+  });
+  res.on('end', () => {
+    const b = Buffer.concat(bs);
+    const s = b.toString('utf8');
+
+    cb(null, s);
+  });
+  res.on('error', err => {
+    cb(err);
+  });
+};
+const _getResponseJson = (res, cb) => {
+  _getResponseString(res, (err, s) => {
+    if (!err) {
+      const j = _jsonParse(s);
+
+      cb(null, j);
+    } else {
+      cb(err);
+    }
+  });
+};
 /* const _renderMarkdown = s => showdownConverter
   .makeHtml(s)
   .replace(/&mdash;/g, '-')
   .replace(/(<code\s*[^>]*?>)([^>]*?)(<\/code>)/g, (all, start, mid, end) => start + mid.replace(/\n/g, '<br/>') + end)
   .replace(/\n+/g, ' '); */
 
-module.exports = ModuleQuery;
+const _makeModuleQuery = opts => new ModuleQuery(opts);
+module.exports = _makeModuleQuery;
