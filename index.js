@@ -14,7 +14,6 @@ class ModuleQuery {
   constructor({dirname = __dirname, modulePath = ''} = {}) {
     this.dirname = dirname;
     this.modulePath = modulePath;
-    // const localModulePath = path.join(dirname, 'plugins');
   }
 
   search(q = '') {
@@ -304,47 +303,6 @@ class ModuleQuery {
         metadata: {},
       }));
   }
-
-  /* const _getModuleReadmeMd = plugin => new Promise((accept, reject) => {
-    if (path.isAbsolute(plugin)) {
-      fs.readFile(path.join(dirname, plugin, 'README.md'), 'utf8', (err, s) => {
-        if (!err) {
-          accept(_renderMarkdown(s));
-        } else if (err.code === 'ENOENT') {
-           accept('');
-        } else {
-          reject(err);
-        }
-      });
-    } else {
-      npm.requestReadmeMd(plugin)
-        .then(s => {
-          accept(_renderMarkdown(s));
-        })
-        .catch(reject);
-    }
-  }); */
-  /* const _getModules = mod => Promise.all([
-    _getModulePackageJson(mod),
-    _getModuleReadmeMd(mod),
-  ])
-    .then(([
-      packageJson,
-      readmeMd,
-    ]) => ({
-      type: 'element',
-      id: mod,
-      name: mod,
-      displayName: packageJson.name,
-      version: packageJson.version,
-      description: packageJson.description || null,
-      readme: readmeMd || '',
-      hasClient: Boolean(packageJson.client),
-      hasServer: Boolean(packageJson.server),
-      hasWorker: Boolean(packageJson.worker),
-      local: path.isAbsolute(mod),
-      matrix: DEFAULT_TAG_MATRIX,
-    })); */
 }
 
 const _jsonParse = s => {
