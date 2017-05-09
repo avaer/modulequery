@@ -301,6 +301,7 @@ class ModuleQuery {
         versions: versions,
         description: packageJson.description || null,
         readme: readme ? marked(readme) : null,
+        asset: packageJson.asset || null,
         hasClient: Boolean(packageJson.client),
         hasServer: Boolean(packageJson.server),
         hasWorker: Boolean(packageJson.worker),
