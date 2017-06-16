@@ -66,17 +66,17 @@ class ModuleQuery {
       const _rejectApiError = _makeRejectApiError(reject);
 
       https.get({
-        hostname: 'api.npms.io',
-        path: '/v2/search?q=' + encodeURIComponent(q) + '+keywords:' + keywords.join(','),
+        hostname: 'registry.npmjs.org',
+        path: '/-/v1/search?text=' + encodeURIComponent(q) + '+keywords:' + keywords.join(','),
       }, proxyRes => {
         if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
           _getResponseJson(proxyRes, (err, j) => {
             if (!err) {
               if (typeof j === 'object' && j !== null) {
-                const {results} = j;
+                const {objects} = j;
 
-                if (Array.isArray(results)) {
-                  const mods = results.map(({package: {name}}) => name);
+                if (Array.isArray(objects)) {
+                  const mods = objects.map(({package: {name}}) => name);
                   accept(mods);
                 } else {
                   _rejectApiError();
