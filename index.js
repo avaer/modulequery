@@ -4,12 +4,6 @@ const https = require('follow-redirects').https;
 
 const marked = require('marked');
 
-const DEFAULT_TAG_MATRIX = [
-  0, 0, 0,
-  0, 0, 0, 1,
-  1, 1, 1,
-];
-
 class ModuleQuery {
   constructor({dirname = __dirname, modulePath = ''} = {}) {
     this.dirname = dirname;
@@ -293,12 +287,11 @@ class ModuleQuery {
         versions: versions,
         description: packageJson.description || null,
         readme: readme ? marked(readme) : null,
-        asset: packageJson.asset || null,
+        vrid: packageJson.vrid || null,
         hasClient: Boolean(packageJson.client),
         hasServer: Boolean(packageJson.server),
         hasWorker: Boolean(packageJson.worker),
         local: path.isAbsolute(mod),
-        matrix: DEFAULT_TAG_MATRIX,
         metadata: {},
       }));
   }
