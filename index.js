@@ -124,25 +124,20 @@ class ModuleQuery {
 
     const _getModulePackageJson = plugin => {
       const _getLocalModulePackageJson = plugin => new Promise((accept, reject) => {
-        if (plugin.indexOf(modulePath) === 0) {
-          fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
-            if (!err) {
-              const j = _jsonParse(s);
+        fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
+          if (!err) {
+            const j = _jsonParse(s);
 
-              if (j !== null) {
-                accept(j);
-              } else {
-                const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
-                reject(err);
-              }
+            if (j !== null) {
+              accept(j);
             } else {
+              const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
               reject(err);
             }
-          });
-        } else {
-          const err = new Error('Invalid local module path: ' + JSON.stringify(plugin));
-          reject(err);
-        }
+          } else {
+            reject(err);
+          }
+        });
       });
       const _getNpmModulePackageJson = module => new Promise((accept, reject) => {
         const _rejectApiError = _makeRejectApiError(reject);
@@ -179,28 +174,23 @@ class ModuleQuery {
     };
     const _getModuleVersions = plugin => {
       const _getLocalModuleVersions = plugin => new Promise((accept, reject) => {
-        if (plugin.indexOf(modulePath) === 0) {
-          fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
-            if (!err) {
-              const j = _jsonParse(s);
+        fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
+          if (!err) {
+            const j = _jsonParse(s);
 
-              if (j !== null) {
-                const {version = '0.0.1'} = j;
-                const versions = [version];
+            if (j !== null) {
+              const {version = '0.0.1'} = j;
+              const versions = [version];
 
-                accept(versions);
-              } else {
-                const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
-                reject(err);
-              }
+              accept(versions);
             } else {
+              const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
               reject(err);
             }
-          });
-        } else {
-          const err = new Error('Invalid local module path: ' + JSON.stringify(plugin));
-          reject(err);
-        }
+          } else {
+            reject(err);
+          }
+        });
       });
       const _getNpmModuleVersions = module => new Promise((accept, reject) => {
         const _rejectApiError = _makeRejectApiError(reject);
