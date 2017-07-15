@@ -21,7 +21,9 @@ class ModuleQuery {
 
     const _requestAllLocalModules = () => new Promise((accept, reject) => {
       fs.readdir(path.join(dirname, modulePath), (err, files) => {
-        if (!err) {
+        if (!err || err.code === 'ENOENT') {
+          files = files || [];
+
           if (files.length > 0) {
             const result = [];
             let pending = files.length;
