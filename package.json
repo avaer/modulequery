@@ -18,6 +18,7 @@
   "homepage": "https://github.com/modulesio/modulequery#readme",
   "dependencies": {
     "follow-redirects": "^1.2.3",
-    "marked": "^0.3.6"
+    "marked": "^0.3.6",
+    "semver": "^5.4.1"
   }
 }

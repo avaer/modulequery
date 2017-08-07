@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const https = require('follow-redirects').https;
 
+const semver = require('semver');
 const marked = require('marked');
 
 class ModuleQuery {
@@ -197,7 +198,8 @@ class ModuleQuery {
             _getResponseJson(proxyRes, (err, j) => {
               if (!err) {
                 if (typeof j === 'object' && j !== null && typeof j.versions === 'object' && j.versions !== null) {
-                  const versions = Object.keys(j.versions);
+                  const versions = Object.keys(j.versions)
+                    .sort((a, b) => semver.compare(a, b) * - 1); // newest to oldest
                   accept(versions);
                 } else {
                   _rejectApiError();
