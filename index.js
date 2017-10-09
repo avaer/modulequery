@@ -35,7 +35,7 @@ class ModuleQuery {
               fs.lstat(path.join(dirname, filePath), (err, stats) => {
                 if (!err) {
                   if (stats.isDirectory()) {
-                    result.push(filePath);
+                    result.push(filePath.replace(/\\/g, '/'));
                   }
                 } else {
                   console.warn(err);
@@ -224,7 +224,7 @@ class ModuleQuery {
     };
     const _getModuleReadme = plugin => {
       const _getLocalModuleReadme = module => new Promise((accept, reject) => {
-        if (plugin.indexOf(modulePath) === 0) {
+        if (plugin.indexOf(modulePath.replace(/\\/g, '/')) === 0) {
           fs.readFile(path.join(dirname, plugin, 'README.md'), 'utf8', (err, s) => {
             if (!err) {
               accept(s);
