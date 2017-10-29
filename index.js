@@ -6,7 +6,7 @@ const semver = require('semver');
 const marked = require('marked');
 
 class ModuleQuery {
-  constructor({dirname = __dirname, modulePath = ''} = {}) {
+  constructor({dirname = __dirname, modulePath} = {}) {
     this.dirname = dirname;
     this.modulePath = modulePath;
   }
@@ -15,42 +15,46 @@ class ModuleQuery {
     const {dirname, modulePath} = this;
 
     const _requestAllLocalModules = () => new Promise((accept, reject) => {
-      fs.readdir(path.join(dirname, modulePath), (err, files) => {
-        if (!err || err.code === 'ENOENT') {
-          files = files || [];
+      if (modulePath) {
+        fs.readdir(path.join(dirname, modulePath), (err, files) => {
+          if (!err || err.code === 'ENOENT') {
+            files = files || [];
 
-          if (files.length > 0) {
-            const result = [];
-            let pending = files.length;
-            const pend = () => {
-              if (--pending === 0) {
-                accept(result.sort((a, b) => path.basename(a).localeCompare(path.basename(b))));
-              }
-            };
-
-            for (let i = 0; i < files.length; i++) {
-              const file = files[i];
-              const filePath = path.join(modulePath, file);
-
-              fs.lstat(path.join(dirname, filePath), (err, stats) => {
-                if (!err) {
-                  if (stats.isDirectory()) {
-                    result.push(filePath.replace(/\\/g, '/'));
-                  }
-                } else {
-                  console.warn(err);
+            if (files.length > 0) {
+              const result = [];
+              let pending = files.length;
+              const pend = () => {
+                if (--pending === 0) {
+                  accept(result.sort((a, b) => path.basename(a).localeCompare(path.basename(b))));
                 }
+              };
 
-                pend();
-              });
+              for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const filePath = path.join(modulePath, file);
+
+                fs.lstat(path.join(dirname, filePath), (err, stats) => {
+                  if (!err) {
+                    if (stats.isDirectory()) {
+                      result.push(filePath.replace(/\\/g, '/'));
+                    }
+                  } else {
+                    console.warn(err);
+                  }
+
+                  pend();
+                });
+              }
+            } else {
+              accept([]);
             }
           } else {
-            accept([]);
+            reject(err);
           }
-        } else {
-          reject(err);
-        }
-      });
+        });
+      } else {
+        accept([]);
+      }
     });
     const _getModules = mods => Promise.all(mods.map(mod => this.getModule(mod)));
     const _requestLocalModules = q => _requestAllLocalModules()
@@ -224,7 +228,7 @@ class ModuleQuery {
     };
     const _getModuleReadme = plugin => {
       const _getLocalModuleReadme = module => new Promise((accept, reject) => {
-        if (plugin.indexOf(modulePath.replace(/\\/g, '/')) === 0) {
+        if (modulePath && plugin.indexOf(modulePath.replace(/\\/g, '/')) === 0) {
           fs.readFile(path.join(dirname, plugin, 'README.md'), 'utf8', (err, s) => {
             if (!err) {
               accept(s);
