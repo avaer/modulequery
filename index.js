@@ -6,7 +6,7 @@ const semver = require('semver');
 const marked = require('marked');
 
 class ModuleQuery {
-  constructor({dirname = __dirname, modulePath} = {}) {
+  constructor({dirname, modulePath} = {}) {
     this.dirname = dirname;
     this.modulePath = modulePath;
   }
@@ -123,20 +123,25 @@ class ModuleQuery {
 
     const _getModulePackageJson = plugin => {
       const _getLocalModulePackageJson = plugin => new Promise((accept, reject) => {
-        fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
-          if (!err) {
-            const j = _jsonParse(s);
+        if (dirname) {
+          fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
+            if (!err) {
+              const j = _jsonParse(s);
 
-            if (j !== null) {
-              accept(j);
+              if (j !== null) {
+                accept(j);
+              } else {
+                const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
+                reject(err);
+              }
             } else {
-              const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
               reject(err);
             }
-          } else {
-            reject(err);
-          }
-        });
+          });
+        } else {
+          const err = new Error('Not found');
+          reject(err);
+        }
       });
       const _getNpmModulePackageJson = module => new Promise((accept, reject) => {
         const _rejectApiError = _makeRejectApiError(reject);
@@ -173,23 +178,28 @@ class ModuleQuery {
     };
     const _getModuleVersions = plugin => {
       const _getLocalModuleVersions = plugin => new Promise((accept, reject) => {
-        fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
-          if (!err) {
-            const j = _jsonParse(s);
+        if (dirname) {
+          fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
+            if (!err) {
+              const j = _jsonParse(s);
 
-            if (j !== null) {
-              const {version = '0.0.1'} = j;
-              const versions = [version];
+              if (j !== null) {
+                const {version = '0.0.1'} = j;
+                const versions = [version];
 
-              accept(versions);
+                accept(versions);
+              } else {
+                const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
+                reject(err);
+              }
             } else {
-              const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
               reject(err);
             }
-          } else {
-            reject(err);
-          }
-        });
+          });
+        } else {
+          const err = new Error('Not found');
+          reject(err);
+        }
       });
       const _getNpmModuleVersions = module => new Promise((accept, reject) => {
         const _rejectApiError = _makeRejectApiError(reject);
@@ -228,7 +238,7 @@ class ModuleQuery {
     };
     const _getModuleReadme = plugin => {
       const _getLocalModuleReadme = module => new Promise((accept, reject) => {
-        if (modulePath && plugin.indexOf(modulePath.replace(/\\/g, '/')) === 0) {
+        if (dirname && modulePath && plugin.indexOf(modulePath.replace(/\\/g, '/')) === 0) {
           fs.readFile(path.join(dirname, plugin, 'README.md'), 'utf8', (err, s) => {
             if (!err) {
               accept(s);
