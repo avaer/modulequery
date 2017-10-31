@@ -303,7 +303,7 @@ class ModuleQuery {
         versions: versions,
         description: packageJson.description || null,
         readme: readme ? marked(readme) : null,
-        vrid: packageJson.vrid || null,
+        metadata: packageJson.metadata || null,
         hasClient: Boolean(packageJson.client),
         hasServer: Boolean(packageJson.server),
         hasWorker: Boolean(packageJson.worker),
