@@ -308,7 +308,6 @@ class ModuleQuery {
         hasServer: Boolean(packageJson.server),
         hasWorker: Boolean(packageJson.worker),
         local: path.isAbsolute(mod),
-        metadata: {},
       }));
   }
 }
