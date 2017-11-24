@@ -294,9 +294,9 @@ class ModuleQuery {
     const _getModulePreview = (plugin, packageJson) => {
       const _getLocalModulePreview = module => new Promise((accept, reject) => {
         if (dirname && modulePath && plugin.indexOf(modulePath.replace(/\\/g, '/')) === 0) {
-          fs.readFile(path.join(dirname, plugin, packageJson.preview), 'utf8', (err, s) => {
+          fs.readFile(path.join(dirname, plugin, packageJson.preview), (err, d) => {
             if (!err) {
-              accept(s);
+              accept(d.toString('base64'));
             } else if (err.code === 'ENOENT') {
               accept(null);
             } else {
@@ -316,9 +316,9 @@ class ModuleQuery {
           path: '/' + module + '/' + packageJson.preview,
         }, proxyRes => {
           if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
-            _getResponseString(proxyRes, (err, s) => {
+            _getResponseBuffer(proxyRes, (err, d) => {
               if (!err) {
-                accept(s);
+                accept(d.toString('base64'));
               } else {
                 _rejectApiError(proxyRes.statusCode);
               }
@@ -404,27 +404,32 @@ const _makeRejectApiError = reject => (statusCode = 500, message = 'API Error: '
   err.statusCode = statusCode;
   reject(err); 
 };
-const _getResponseString = (res, cb) => {
+const _getResponseBuffer = (res, cb) => {
   const bs = [];
+
   res.on('data', d => {
     bs.push(d);
   });
   res.on('end', () => {
-    const b = Buffer.concat(bs);
-    const s = b.toString('utf8');
-
-    cb(null, s);
+    cb(null, Buffer.concat(bs));
   });
   res.on('error', err => {
     cb(err);
   });
 };
+const _getResponseString = (res, cb) => {
+  _getResponseBuffer(res, (err, b) => {
+    if (!err) {
+      cb(null, b.toString('utf8'));
+    } else {
+      cb(err);
+    }
+  });
+};
 const _getResponseJson = (res, cb) => {
   _getResponseString(res, (err, s) => {
     if (!err) {
-      const j = _jsonParse(s);
-
-      cb(null, j);
+      cb(null, _jsonParse(s));
     } else {
       cb(err);
     }
