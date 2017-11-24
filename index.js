@@ -291,19 +291,81 @@ class ModuleQuery {
         return _getNpmModuleReadme(plugin);
       }
     };
+    const _getModulePreview = (plugin, packageJson) => {
+      const _getLocalModulePreview = module => new Promise((accept, reject) => {
+        if (dirname && modulePath && plugin.indexOf(modulePath.replace(/\\/g, '/')) === 0) {
+          fs.readFile(path.join(dirname, plugin, packageJson.preview), 'utf8', (err, s) => {
+            if (!err) {
+              accept(s);
+            } else if (err.code === 'ENOENT') {
+              accept(null);
+            } else {
+              reject(err);
+            }
+          });
+        } else {
+          const err = new Error('Invalid local module path: ' + JSON.stringify(plugin));
+          reject(err);
+        }
+      });
+      const _getNpmModulePreview = module => new Promise((accept, reject) => {
+        const _rejectApiError = _makeRejectApiError(reject);
+
+        https.get({
+          hostname: 'unpkg.com',
+          path: '/' + module + '/' + packageJson.preview,
+        }, proxyRes => {
+          if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
+            _getResponseString(proxyRes, (err, s) => {
+              if (!err) {
+                accept(s);
+              } else {
+                _rejectApiError(proxyRes.statusCode);
+              }
+            });
+          } else if (proxyRes.statusCode === 404) {
+            accept(null);
+          } else {
+            _rejectApiError(proxyRes.statusCode);
+          }
+        }).on('error', err => {
+          _rejectApiError(500, err.stack);
+        });
+      });
+
+      if (packageJson.preview) {
+        if (path.isAbsolute(plugin)) {
+          return _getLocalModulePreview(plugin);
+        } else {
+          return _getNpmModulePreview(plugin);
+        }
+      } else {
+        return Promise.resolve(null);
+      }
+    };
 
     return Promise.all([
-      _getModulePackageJson(mod),
+      _getModulePackageJson(mod)
+        .then(packageJson => _getModulePreview(mod, packageJson)
+          .then(preview => ({
+            packageJson,
+            preview,
+          }))
+        ),
       _getModuleDetails(mod),
       _getModuleReadme(mod),
     ])
       .then(([
-        packageJson,
+        {
+          packageJson,
+          preview,
+        },
         {
           author,
           versions,
         },
         readme,
+        preview,
       ]) => ({
         type: 'module',
         id: mod,
@@ -314,6 +376,7 @@ class ModuleQuery {
         versions: versions,
         description: packageJson.description || null,
         readme: readme ? marked(readme) : null,
+        preview: preview,
         metadata: packageJson.metadata || null,
         hasClient: Boolean(packageJson.client),
         hasServer: Boolean(packageJson.server),
