@@ -176,8 +176,8 @@ class ModuleQuery {
         return _getNpmModulePackageJson(plugin);
       }
     };
-    const _getModuleVersions = plugin => {
-      const _getLocalModuleVersions = plugin => new Promise((accept, reject) => {
+    const _getModuleDetails = plugin => {
+      const _getLocalModuleDetails = plugin => new Promise((accept, reject) => {
         if (dirname) {
           fs.readFile(path.join(dirname, plugin, 'package.json'), 'utf8', (err, s) => {
             if (!err) {
@@ -185,23 +185,25 @@ class ModuleQuery {
 
               if (j !== null) {
                 const {version = '0.0.1'} = j;
+                const author = null;
                 const versions = [version];
 
-                accept(versions);
+                accept({
+                  author,
+                  versions,
+                });
               } else {
-                const err = new Error('Failed to parse package.json for ' + JSON.stringify(plugin));
-                reject(err);
+                reject(new Error('Failed to parse package.json for ' + JSON.stringify(plugin)));
               }
             } else {
               reject(err);
             }
           });
         } else {
-          const err = new Error('Not found');
-          reject(err);
+          reject(new Error('Not found'));
         }
       });
-      const _getNpmModuleVersions = module => new Promise((accept, reject) => {
+      const _getNpmModuleDetails = module => new Promise((accept, reject) => {
         const _rejectApiError = _makeRejectApiError(reject);
 
         https.get({
@@ -211,10 +213,15 @@ class ModuleQuery {
           if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
             _getResponseJson(proxyRes, (err, j) => {
               if (!err) {
-                if (typeof j === 'object' && j !== null && typeof j.versions === 'object' && j.versions !== null) {
+                if (typeof j === 'object' && j !== null && typeof j.maintainers === 'object' && typeof j.versions === 'object' && j.versions !== null) {
+                  const author = j.maintainers[0].name;
                   const versions = Object.keys(j.versions)
                     .sort((a, b) => semver.compare(a, b) * - 1); // newest to oldest
-                  accept(versions);
+
+                  accept({
+                    author,
+                    versions,
+                  });
                 } else {
                   _rejectApiError();
                 }
@@ -231,9 +238,9 @@ class ModuleQuery {
       });
 
       if (path.isAbsolute(plugin)) {
-        return _getLocalModuleVersions(plugin);
+        return _getLocalModuleDetails(plugin);
       } else {
-        return _getNpmModuleVersions(plugin);
+        return _getNpmModuleDetails(plugin);
       }
     };
     const _getModuleReadme = plugin => {
@@ -287,18 +294,22 @@ class ModuleQuery {
 
     return Promise.all([
       _getModulePackageJson(mod),
-      _getModuleVersions(mod),
+      _getModuleDetails(mod),
       _getModuleReadme(mod),
     ])
       .then(([
         packageJson,
-        versions,
+        {
+          author,
+          versions,
+        },
         readme,
       ]) => ({
         type: 'module',
         id: mod,
         name: mod,
         displayName: packageJson.name,
+        author: author,
         version: packageJson.version,
         versions: versions,
         description: packageJson.description || null,
