@@ -365,7 +365,6 @@ class ModuleQuery {
           versions,
         },
         readme,
-        preview,
       ]) => ({
         type: 'module',
         id: mod,
