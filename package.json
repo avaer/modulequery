@@ -1,6 +1,6 @@
 {
   "name": "modulequery",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "description": "Look up npm modules with the power of the internet",
   "main": "index.js",
   "scripts": {
