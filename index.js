@@ -314,6 +314,8 @@ class ModuleQuery {
         versions: versions,
         description: packageJson.description || null,
         readme: readme ? marked(readme) : null,
+        serves: packageJson.serves || null,
+        builds: packageJson.builds || null,
         metadata: packageJson.metadata || null,
         hasClient: Boolean(packageJson.client),
         hasServer: Boolean(packageJson.server),
