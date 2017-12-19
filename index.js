@@ -306,8 +306,8 @@ class ModuleQuery {
         readme,
       ]) => ({
         type: 'module',
-        id: mod,
-        name: mod,
+        id: packageJson.name,
+        name: packageJson.name,
         displayName: packageJson.name,
         author: author,
         version: packageJson.version,
