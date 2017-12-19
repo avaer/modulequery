@@ -113,8 +113,19 @@ class ModuleQuery {
         localModSpecs,
         npmModSpecs,
       ]) => {
-        const modSpecs = localModSpecs.concat(npmModSpecs);
-        return Promise.resolve(modSpecs);
+        const index = {};
+        for (let i = 0; i < localModSpecs.length; i++) {
+          index[localModSpecs[i].name] = true;
+        }
+
+        const result = localModSpecs.slice();
+        for (let i = 0; i < npmModSpecs.length; i++) {
+          const npmModSpec = npmModSpecs[i];
+          if (!index[npmModSpec.name]) {
+            result.push(npmModSpec);
+          }
+        }
+        return Promise.resolve(result);
       });
   }
 
