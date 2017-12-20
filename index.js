@@ -6,13 +6,14 @@ const semver = require('semver');
 const marked = require('marked');
 
 class ModuleQuery {
-  constructor({dirname, modulePath} = {}) {
+  constructor({dirname, modulePath, sources = ['local', 'npm']} = {}) {
     this.dirname = dirname;
     this.modulePath = modulePath;
+    this.sources = sources;
   }
 
   search(q = '', {keywords = [], includeScoped = false} = {}) {
-    const {dirname, modulePath} = this;
+    const {dirname, modulePath, sources} = this;
 
     const _requestAllLocalModules = () => new Promise((accept, reject) => {
       if (modulePath) {
@@ -57,53 +58,65 @@ class ModuleQuery {
       }
     });
     const _getModules = mods => Promise.all(mods.map(mod => this.getModule(mod)));
-    const _requestLocalModules = q => _requestAllLocalModules()
-      .then(modules => modules.filter(module => {
-        const name = path.basename(module);
-        return name.indexOf(q) !== -1;
-      }))
-      .then(_getModules);
-    const _requestNpmModules = q => new Promise((accept, reject) => {
-      const _rejectApiError = _makeRejectApiError(reject);
-
-      https.get({
-        hostname: 'registry.npmjs.org',
-        path: '/-/v1/search?text=' + encodeURIComponent(q) + '+keywords:' + keywords.join(','),
-      }, proxyRes => {
-        if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
-          _getResponseJson(proxyRes, (err, j) => {
-            if (!err) {
-              if (typeof j === 'object' && j !== null) {
-                const {objects} = j;
-
-                if (Array.isArray(objects)) {
-                  const mods = objects.map(({package: {name}}) => name);
-                  accept(mods);
-                } else {
-                  _rejectApiError();
-                }
-              } else {
-                _rejectApiError();
-              }
-            } else {
-              _rejectApiError(500, err.stack);
-            }
-          });
-        } else {
-          _rejectApiError(proxyRes.statusCode);
-        }
-      }).on('error', err => {
-        _rejectApiError(500, err.stack);
-      });
-    })
-    .then(modules => {
-      if (includeScoped) {
-        return modules;
+    const _requestLocalModules = q => {
+      if (sources.includes('local')) {
+        _requestAllLocalModules()
+          .then(modules => modules.filter(module => {
+            const name = path.basename(module);
+            return name.indexOf(q) !== -1;
+          }))
+          .then(_getModules);
       } else {
-        return modules.filter(module => !/^@/.test(module));
+        return Promise.resolve([]);
       }
-    })
-    .then(_getModules);
+    };
+    const _requestNpmModules = q => {
+      if (sources.includes('npm')) {
+        return new Promise((accept, reject) => {
+          const _rejectApiError = _makeRejectApiError(reject);
+
+          https.get({
+            hostname: 'registry.npmjs.org',
+            path: '/-/v1/search?text=' + encodeURIComponent(q) + '+keywords:' + keywords.join(','),
+          }, proxyRes => {
+            if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
+              _getResponseJson(proxyRes, (err, j) => {
+                if (!err) {
+                  if (typeof j === 'object' && j !== null) {
+                    const {objects} = j;
+
+                    if (Array.isArray(objects)) {
+                      const mods = objects.map(({package: {name}}) => name);
+                      accept(mods);
+                    } else {
+                      _rejectApiError();
+                    }
+                  } else {
+                    _rejectApiError();
+                  }
+                } else {
+                  _rejectApiError(500, err.stack);
+                }
+              });
+            } else {
+              _rejectApiError(proxyRes.statusCode);
+            }
+          }).on('error', err => {
+            _rejectApiError(500, err.stack);
+          });
+        })
+        .then(modules => {
+          if (includeScoped) {
+            return modules;
+          } else {
+            return modules.filter(module => !/^@/.test(module));
+          }
+        })
+        .then(_getModules);
+      } else {
+        return Promise.resolve([]);
+      }
+    };
 
     return Promise.all([
       _requestLocalModules(q),
