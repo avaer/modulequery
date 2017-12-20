@@ -60,7 +60,7 @@ class ModuleQuery {
     const _getModules = mods => Promise.all(mods.map(mod => this.getModule(mod)));
     const _requestLocalModules = q => {
       if (sources.includes('local')) {
-        _requestAllLocalModules()
+        return _requestAllLocalModules()
           .then(modules => modules.filter(module => {
             const name = path.basename(module);
             return name.indexOf(q) !== -1;
