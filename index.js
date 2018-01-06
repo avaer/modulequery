@@ -77,7 +77,8 @@ class ModuleQuery {
 
           https.get({
             hostname: 'registry.npmjs.org',
-            path: '/-/v1/search?text=' + encodeURIComponent(q) + '+keywords:' + keywords.join(','),
+            path: '/-/v1/search?text=' + encodeURIComponent(q) + (keywords.length > 0 ? ('+keywords:' + keywords.join(',')) : '')
+            ,
           }, proxyRes => {
             if (proxyRes.statusCode >= 200 && proxyRes.statusCode < 300) {
               _getResponseJson(proxyRes, (err, j) => {
