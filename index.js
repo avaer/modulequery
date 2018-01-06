@@ -12,7 +12,7 @@ class ModuleQuery {
     this.sources = sources;
   }
 
-  search(q = '', {keywords = [], includeScoped = false} = {}) {
+  search(q = '', {keywords = [], includeScoped = false, includeDeprecated = false} = {}) {
     const {dirname, modulePath, sources} = this;
 
     const _requestAllLocalModules = () => new Promise((accept, reject) => {
@@ -106,14 +106,19 @@ class ModuleQuery {
             _rejectApiError(500, err.stack);
           });
         })
-        .then(modules => {
-          if (includeScoped) {
-            return modules;
-          } else {
-            return modules.filter(module => !/^@/.test(module));
+        .then(moduleNames => {
+          if (!includeScoped) {
+            moduleNames = moduleNames.filter(moduleName => !/^@/.test(moduleName));
           }
+          return moduleNames;
         })
-        .then(_getModules);
+        .then(_getModules)
+        .then(moduleSpecs => {
+          if (!includeDeprecated) {
+            moduleSpecs = moduleSpecs.filter(moduleSpec => !moduleSpec.deprecated);
+          }
+          return moduleSpecs;
+        });
       } else {
         return Promise.resolve([]);
       }
@@ -212,10 +217,12 @@ class ModuleQuery {
                 const {version = '0.0.1'} = j;
                 const author = null;
                 const versions = [version];
+                const deprecated = false;
 
                 accept({
                   author,
                   versions,
+                  deprecated,
                 });
               } else {
                 reject(new Error('Failed to parse package.json for ' + JSON.stringify(plugin)));
@@ -240,12 +247,13 @@ class ModuleQuery {
               if (!err) {
                 if (typeof j === 'object' && j !== null && typeof j.maintainers === 'object' && typeof j.versions === 'object' && j.versions !== null) {
                   const author = j.maintainers[0].name;
-                  const versions = Object.keys(j.versions)
-                    .sort((a, b) => semver.compare(a, b) * - 1); // newest to oldest
+                  const versions = Object.keys(j.versions).sort((a, b) => semver.compare(a, b) * - 1); // newest to oldest
+                  const deprecated = Boolean(j.versions[versions[0]].deprecated);
 
                   accept({
                     author,
                     versions,
+                    deprecated,
                   });
                 } else {
                   _rejectApiError();
@@ -327,6 +335,7 @@ class ModuleQuery {
         {
           author,
           versions,
+          deprecated,
         },
         readme,
       ]) => ({
@@ -346,6 +355,7 @@ class ModuleQuery {
         hasServer: Boolean(packageJson.server),
         hasWorker: Boolean(packageJson.worker),
         local: path.isAbsolute(mod),
+        deprecated: deprecated,
       }));
   }
 }
